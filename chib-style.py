@@ -18,12 +18,12 @@ def getLogPzDoc(i_sample,n_topics,topic_prior,topic_alpha):
     return(log_pz)
 
 
-def log_Tprob_base(zto, zfrom, Nz_, new_doc, TERtopic, topic_prior):
-    Nd = len(new_doc)
+def log_Tprob_base(zto, zfrom, Nz_, doc, phi, topic_prior):
+    Nd = len(doc)
     lp = 0
     for t in range(Nd):
         Nz_[zfrom[t]] = Nz_[zfrom[t]]  - 1
-        pz = TERtopic[:, new_doc[t]]* (Nz_+topic_prior)
+        pz = phi[:, doc[t]]* (Nz_+topic_prior)
         pz = pz/pz.sum()
         lp = lp + math.log(pz[zto[t]])
         Nz_[zto[t]] = Nz_[zto[t]] + 1
@@ -35,13 +35,13 @@ def getDiscreteSample(pz):
     z_sample=np.argmax(np.random.multinomial(1, pz, 1), axis=1).tolist()[0]
     return(z_sample)
 
-def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
+def getCSLogLikelihood(phi, doc, alpha=0.01,ms_iters=100):
 
     ms_iters=ms_iters
     b_iters=3
     c_iters=12
-    Nd = len(new_doc);
-    n_topics=TERtopic.shape[0]
+    Nd = len(doc);
+    n_topics=phi.shape[0]
     if isinstance(alpha,float):
         topic_alpha = alpha*n_topics
         topic_prior = np.repeat(alpha,n_topics)
@@ -55,7 +55,7 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
     zz=np.zeros((1, Nd))[0].astype(int)
 
     for t in range(Nd):   
-        pz=TERtopic[:, new_doc[t]]* topic_prior
+        pz=phi[:, doc[t]]* topic_prior
         zz_t= getDiscreteSample(pz)
         zz[t]=zz_t
         Nz[zz_t]=Nz[zz_t]+1
@@ -64,7 +64,7 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
     for sweeps in range(b_iters):
         for t in range(Nd):
             Nz[zz[t]]=Nz[zz[t]]-1
-            pz=pz = TERtopic[:, new_doc[t]]* (Nz+topic_prior)
+            pz=pz = phi[:, doc[t]]* (Nz+topic_prior)
             zz_t=getDiscreteSample(pz)
             zz[t]=zz_t
             Nz[zz_t]=Nz[zz_t]+1
@@ -75,7 +75,7 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
         old_zz =np.copy(zz)
         for t in range(Nd):
             Nz[zz[t]] = Nz[zz[t]]  - 1
-            pz = TERtopic[:, new_doc[t]]* (Nz+topic_prior)
+            pz = phi[:, doc[t]]* (Nz+topic_prior)
             zz_t=np.argmax(pz)
             zz[t]=zz_t
             Nz[zz_t] = Nz[zz_t]  + 1
@@ -93,7 +93,7 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
     #% Draw z^(s)
     for t in np.sort(range(Nd))[::-1].tolist():
         Nz[zz[t]]=Nz[zz[t]]-1
-        pz = TERtopic[:, new_doc[t]]* (Nz+topic_prior)
+        pz = phi[:, doc[t]]* (Nz+topic_prior)
         zz_t= getDiscreteSample(pz)
         zz[t]=zz_t
         Nz[zz_t]=Nz[zz_t]+1
@@ -102,18 +102,18 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
     Ns = Nz
 
     Nz_aux=np.copy(Nz)
-    log_Tvals[ss] = log_Tprob_base(zstar, zz, Nz_aux, new_doc, TERtopic, topic_prior) 
+    log_Tvals[ss] = log_Tprob_base(zstar, zz, Nz_aux, doc, phi, topic_prior) 
 
     for sprime in range(ss+1,ms_iters):
         for t in range(Nd):
             Nz[zz[t]] = Nz[zz[t]]  - 1
-            pz = TERtopic[:, new_doc[t]]* (Nz+topic_prior)
+            pz = phi[:, doc[t]]* (Nz+topic_prior)
             zz_t=getDiscreteSample(pz)
             zz[t]=zz_t
             Nz[zz_t]=Nz[zz_t]+1
 
         Nz_aux=np.copy(Nz)
-        log_Tvals[sprime]=log_Tprob_base(zstar, zz, Nz_aux, new_doc, TERtopic, topic_prior)
+        log_Tvals[sprime]=log_Tprob_base(zstar, zz, Nz_aux, doc, phi, topic_prior)
 
     #% Go back to middle
     zz = np.copy(zs)
@@ -123,20 +123,20 @@ def getCSLogLikelihood(TERtopic, new_doc, alpha=0.01,ms_iters=100):
     for sprime in np.sort(range(ss))[::-1].tolist():
         for t  in np.sort(range(Nd))[::-1].tolist():
             Nz[zz[t]] = Nz[zz[t]]  - 1
-            pz = TERtopic[:, new_doc[t]]* (Nz+topic_prior)
+            pz = phi[:, doc[t]]* (Nz+topic_prior)
             zz_t=getDiscreteSample(pz)
             zz[t]=zz_t
             Nz[zz_t]=Nz[zz_t]+1
 
         Nz_aux=np.copy(Nz)
-        log_Tvals[sprime] = log_Tprob_base(zstar, zz, Nz_aux, new_doc, TERtopic, topic_prior)
+        log_Tvals[sprime] = log_Tprob_base(zstar, zz, Nz_aux, doc, phi, topic_prior)
 
     #% Final estimate
     log_pz = getLogPzDoc(zstar,n_topics,topic_prior,topic_alpha)  
 
     log_w_given_z = 0;
     for t in range(Nd):
-        log_w_given_z +=  math.log(TERtopic[zstar[t] ,new_doc[t]])
+        log_w_given_z +=  math.log(phi[zstar[t] ,doc[t]])
 
     log_joint = log_pz + log_w_given_z
     log_evidence=log_joint- (getLogSumExp(log_Tvals)- math.log(ms_iters))
